@@ -12,24 +12,27 @@ export default function HeroVideo({
   start?: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.play().catch(() => {
-        // Autoplay may be deferred until user interaction if audio unmuted
-      });
-    }
+    const video = videoRef.current;
+    if (!video) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncMotion = () => {
+      if (reducedMotion.matches) video.pause();
+      else void video.play().catch(() => {});
+    };
+    syncMotion();
+    reducedMotion.addEventListener("change", syncMotion);
+    return () => reducedMotion.removeEventListener("change", syncMotion);
   }, []);
 
   const toggle = () => {
     if (!videoRef.current) return;
     if (playing) {
       videoRef.current.pause();
-      setPlaying(false);
     } else {
-      videoRef.current.play();
-      setPlaying(true);
+      void videoRef.current.play().catch(() => {});
     }
   };
 
@@ -40,11 +43,12 @@ export default function HeroVideo({
         className="hero__video-local"
         src={src}
         poster={poster}
-        autoPlay
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
         muted
         loop
         playsInline
-        preload="auto"
+        preload="metadata"
         aria-hidden="true"
       />
       <button

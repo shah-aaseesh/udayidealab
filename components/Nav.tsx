@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { nav } from "@/lib/site";
 import Logo from "./Logo";
 
@@ -10,6 +10,8 @@ export default function Nav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [solid, setSolid] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onScroll = () => setSolid(window.scrollY > 40);
@@ -19,15 +21,43 @@ export default function Nav() {
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
     };
   }, [open]);
 
   useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 821px)");
+    const onResize = () => {
+      if (desktop.matches) setOpen(false);
+    };
+    desktop.addEventListener("change", onResize);
+    return () => desktop.removeEventListener("change", onResize);
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const links = sheetRef.current?.querySelectorAll<HTMLAnchorElement>("a[href]");
+    links?.[0]?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        toggleRef.current?.focus();
+      }
+      if (e.key !== "Tab" || !links?.length) return;
+      const first = toggleRef.current;
+      const last = links[links.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
@@ -57,6 +87,7 @@ export default function Nav() {
         </nav>
 
         <button
+          ref={toggleRef}
           type="button"
           className="nav__toggle"
           aria-expanded={open}
@@ -67,7 +98,7 @@ export default function Nav() {
         </button>
       </div>
 
-      <div id="mobile-menu" className="nav__sheet" hidden={!open}>
+      <div ref={sheetRef} id="mobile-menu" className="nav__sheet" hidden={!open}>
         <nav className="container" aria-label="Mobile">
           {[{ href: "/", label: "Home" }, ...nav, { href: "/contact", label: "Let’s talk" }].map(
             (item, i) => (
